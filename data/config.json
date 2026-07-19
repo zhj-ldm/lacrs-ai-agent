@@ -1,0 +1,24 @@
+{
+    "home": "C:\\Users\\zhaoz",
+    "paths": {
+        "桌面": "",
+        "文档": "",
+        "下载": "",
+        "项目": ""
+    },
+    "api": {
+        "base": "",
+        "key": "",
+        "model": ""
+    },
+    "tts": {
+        "voice": "Microsoft Huihui Desktop - Chinese (Simplified)",
+        "rate": 2,
+        "processing_rate": 1,
+        "volume": 100
+    },
+    "wake": {
+        "threshold": 0.12,
+        "stop_energy_threshold": 1000
+    }
+}
