@@ -38,7 +38,7 @@ star trek ds9 lcars风格 ，类似open claw的AI 语音助手，的支持本地
 ## 程序运行流程
 
 ```
-启动 app.py（Web 服务，端口 5000）
+启动 app.py（Web 服务，端口 8086）
          │
 启动 voice_assistant.py（语音助手主循环）
          │
