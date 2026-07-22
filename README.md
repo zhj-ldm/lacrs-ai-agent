@@ -1,24 +1,23 @@
 
 # st-computer-lcars-ai-agent
 
-运行在Windows上，跨平台难度不大
-star trek ds9 lcars风格 ，类似open claw的AI 语音助手，的支持本地语音识别、大语言模型对话、TTS 朗读，并配有常规 Web 对话和管理设置界面。可在设置切换lacrs UI和常规UI，本项目更侧重实用，但包含st风格
-未来将要支持 ESP32 / Arduino 分布式拾音、扬声器节点，实现全屋任意位置唤醒 AI、内网家电设备控制。
-目前打断方式没有找到合适的所以没有打断逻辑
+Star Trek（星际迷航）DS9 LCARS 风格的本地 AI 语音助手，类似 OpenClaw。支持本地语音唤醒、语音识别（ASR）、大语言模型对话、TTS 朗读，并配有 Web 对话与管理界面（可在 Apple 风格与 LCARS 风格之间切换）。
+
+> 项目最初面向 Windows 设计（TTS 使用 Windows SAPI5），但 Web 服务、对话管理、工具调用等核心逻辑均为跨平台代码。在 macOS / Linux 上可完整运行 Web 界面与 AI 对话，语音唤醒与 TTS 朗读因依赖 Windows SAPI 仅能在 Windows 生效。
 
 ## 功能
 
 | 模块 | 说明 |
 |------|------|
-| 唤醒词检测 | 说出 **"hey computer"** 唤醒，支持阈值自定义 |
+| 唤醒词检测 | 说出 **"hey computer"** 唤醒，支持阈值自定义（默认 0.1） |
 | 语音录制 | VAD 静音检测，自动切句，最短 0.5s / 最长 15s |
 | 语音识别 | 本地 faster-whisper small 模型，CPU int8 量化 |
 | AI 对话 | 接入任意兼容 OpenAI 格式的 LLM API，带上下文多轮对话 |
-| 工具调用 | AI 可自主调用搜索引擎、读写文件、列出目录、执行 Shell |
-| TTS 朗读 | Windows SAPI5 引擎，支持音色切换 (Huihui / Zira / David) 和语速调节 |
+| 工具调用 | AI 可自主调用搜索引擎、读写文件、列出目录、执行 Shell、移动/删除文件 |
+| TTS 朗读 | Windows SAPI5 引擎（仅 Windows），支持音色切换与语速调节 |
 | 语音打断 | 朗读期间大声说话即可打断，自动切回聆听 |
 | 多对话管理 | 创建 / 切换 / 删除对话，语音或 Web 均可操作 |
-| Web 管理界面 | 浏览器查看对话历史、手动发送消息、管理对话 |
+| Web 管理界面 | 浏览器查看对话历史、手动发送消息、管理对话与设置（含 LCARS / Apple 双主题） |
 
 ## 技术栈
 
@@ -27,33 +26,37 @@ star trek ds9 lcars风格 ，类似open claw的AI 语音助手，的支持本地
 │  唤醒词          openwakeword + ONNX                │
 │  语音识别        faster-whisper (small, CPU, int8)  │
 │  LLM             OpenAI 兼容 API                    │
-│  TTS             Windows SAPI5 (pywin32)            │
+│  TTS             Windows SAPI5 (pywin32, 仅 Windows)│
 │  音频 I/O        pyaudio                            │
 │  Web 后端        Flask                              │
-│  Web 前端        HTML + 原生 JS (SSE 流式)            │
-│  搜索引擎        DuckDuckGo (ddgs)  ,自建bing爬虫，百度 │
-│  运行环境        Windows 10/11, Python 3.9+           │
+│  Web 前端        HTML + 原生 JS (fetch 轮询)         │
+│  搜索引擎        baidusearch / ddgs(DuckDuckGo) /    │
+│                  自建 Bing 爬虫(BeautifulSoup)       │
+│  文件操作        send2trash (删除到回收站)           │
+│  运行环境        Windows 10/11 (完整功能)            │
+│                  macOS / Linux (仅 Web + 对话)       │
+│  Python          3.9+                               │
 └─────────────────────────────────────────────────────┘
 ```
 
 ## 程序运行流程
 
 ```
-启动 app.py（Web 服务，端口 8086）
+启动 app.py（Flask Web 服务，端口 8086）
          │
-启动 voice_assistant.py（语音助手主循环）
+启动 voice_assistant.py（语音助手主循环，仅 Windows 完整可用）
          │
          ▼
 ┌─────────────────────────────────────┐
 │  监听麦克风                          │
-│  等待唤醒词 "hey_computer"          │
-│  （唤醒前 ~3% CPU）                  │
+│  等待唤醒词 "hey computer"          │
+│  （唤醒前低 CPU 占用）               │
 └──────────────┬──────────────────────┘
                │ 检测到唤醒词
                ▼
 ┌─────────────────────────────────────┐
 │  播放提示音 wake_sound.wav           │
-│  录制音频至静音 3.5s 或超时 20s      │
+│  录制音频至静音或超时                │
 └──────────────┬──────────────────────┘
                │
                ▼
@@ -70,7 +73,7 @@ star trek ds9 lcars风格 ，类似open claw的AI 语音助手，的支持本地
                │
                ▼
 ┌─────────────────────────────────────┐
-│  SAPI5 TTS 朗读回复                  │
+│  SAPI5 TTS 朗读回复（仅 Windows）    │
 │  → 可被打断（大声说话触发）           │
 │  → 唤醒词工具调用可改语速/音色       │
 └──────────────┬──────────────────────┘
@@ -81,42 +84,59 @@ star trek ds9 lcars风格 ，类似open claw的AI 语音助手，的支持本地
 ## 目录结构
 
 ```
-agnes-chat-backup/
-├── app.py                 # Flask Web 服务 + AI 工具
-├── voice_assistant.py     # 语音助手主程序
-├── install_deps.py        # 依赖一键安装脚本
+st-computer-lcars-ai-agent/
+├── app.py                 # Flask Web 服务 + AI 工具调用后端
+├── voice_assistant.py     # 语音助手主程序（唤醒/录音/ASR/TTS，仅 Windows 完整可用）
+├── install_deps.py        # 依赖一键安装脚本（直接 pip install）
 ├── templates/
-│   └── index.html         # Web 管理界面
-└── data/                  # 运行时数据
-    ├── config.json        # 配置文件
-    ├── complete.wav       # AI 回复提示音
-    ├── wake_sound.wav     # 唤醒提示音
-    └── conversations/     # 对话历史 (JSON)
+│   ├── index.html         # Web 管理界面（Apple + LCARS 双主题）
+│   └── index_js_extracted.js  # 前端 JS 提取备份
+├── data/                  # 运行时数据
+│   ├── config.json        # 配置文件
+│   ├── complete.wav       # AI 回复提示音
+│   ├── wake_sound.wav     # 唤醒提示音
+│   ├── error.wav          # 错误提示音
+│   ├── command_code_verify.wav  # 密码验证提示音
+│   ├── hey_computer.onnx  # 唤醒词模型（已附带）
+│   ├── melspectrogram.onnx     # openwakeword 依赖模型（已附带）
+│   ├── embedding_model.onnx    # openwakeword 依赖模型（已附带）
+│   └── conversations/     # 对话历史 (JSON)
+└── LICENSE
 ```
 
 ## 安装说明
 
 ### 1. 环境要求
 
-- Windows 10 或 Windows 11
 - Python 3.9 及以上
-- 麦克风和扬声器
+- 麦克风和扬声器（语音功能需要，仅 Windows 生效）
 
 ### 2. 安装依赖
 
-```powershell
-# 方式一：一键安装脚本
-python install_deps.py
-需要的几个onnx已重定向到data下，已附带
+推荐使用项目自带的一键安装脚本，它会直接在当前 Python 环境中安装全部依赖：
 
-# 方式二：手动安装
-pip install flask requests numpy pywin32 openwakeword pyaudio faster-whisper
+```bash
+python install_deps.py
 ```
 
-> pyaudio 如果安装失败，通常是缺少 VC++ 运行时：
-> 1. 下载安装 [VC++ Redist](https://aka.ms/vs/17/release/vc_redist.x64.exe)
-> 2. 重试 `pip install pyaudio`
-> 3. 或使用 `pip install pipwin && pipwin install pyaudio`
+脚本会安装以下跨平台依赖：
+
+```
+flask requests numpy pyaudio openwakeword faster-whisper
+baidusearch ddgs beautifulsoup4 send2trash
+```
+
+> 说明：
+> - `pywin32` / `pythoncom` / `winreg` 为 Windows 专属模块，macOS / Linux 上无需也无法安装，脚本已自动排除。
+> - 语音模型（`data/hey_computer.onnx`、`data/melspectrogram.onnx`、`data/embedding_model.onnx`）已随项目附带，无需联网下载。
+> - `faster-whisper` 首次运行会自动下载 `small` 模型（约 1GB），已配置 `hf-mirror.com` 镜像加速。
+
+手动安装（不使用脚本）：
+
+```bash
+pip install flask requests numpy pyaudio openwakeword faster-whisper \
+            baidusearch ddgs beautifulsoup4 send2trash
+```
 
 ### 3. 配置
 
@@ -124,55 +144,74 @@ pip install flask requests numpy pywin32 openwakeword pyaudio faster-whisper
 
 ```json
 {
+    "home": "C:\\Users\\zhaoz",
+    "paths": {
+        "桌面": "D:\\DESK-P",
+        "文档": "C:\\Users\\zhaoz\\Documents",
+        "下载": "C:\\Users\\zhaoz\\Downloads",
+        "项目": "D:\\DESK-P\\develop"
+    },
+    "security": {
+        "password": "9472"
+    },
     "api": {
-        "url": "https://your-api-endpoint/v1/chat/completions",
+        "base": "https://open.bigmodel.cn/api/paas/v4",
         "key": "sk-xxxxxxxx",
-        "model": "gpt-4"
+        "model": "glm-4"
     },
     "tts": {
-        "voice": "Microsoft Huihui Desktop",
-        "rate": 3,
-        "volume": 100,
-        "processing_rate": 1
+        "voice": "[OneCore] Microsoft Yaoyao - Chinese (Simplified, PRC)",
+        "rate": 2,
+        "processing_rate": 1,
+        "volume": 100
     },
     "wake": {
-        "threshold": 0.15,
+        "threshold": 0.1,
+        "silence_threshold": 350,
+        "silence_sec": 3.5,
         "stop_energy_threshold": 1200
+    },
+    "search": {
+        "order": ["baidu", "bing", "ddgs"]
     }
 }
 ```
 
 | 字段 | 说明 |
 |------|------|
-| `api.url` | LLM API 地址（OpenAI 兼容格式） |
+| `home` | 用户主目录（AI 操作文件时的根路径） |
+| `paths` | 路径别名映射（语音说"桌面"等简称时自动展开） |
+| `security.password` | 删除文件时的安全密码（语音读出数字即可） |
+| `api.base` | LLM API 地址（OpenAI 兼容格式，如 `.../v1` 或 `.../v4`） |
 | `api.key` | API 密钥 |
 | `api.model` | 模型名称 |
-| `tts.voice` | 默认音色：`Huihui`(中文女) / `Zira`(英文女) / `David`(英文男) |
+| `tts.voice` | 默认音色（Windows SAPI 语音名，如 Yaoyao / Huihui / Zira） |
 | `tts.rate` | 语速 -10~10，正值越快 |
 | `tts.volume` | 音量 0~100 |
-| `wake.threshold` | 唤醒词灵敏度（越低越灵敏） |
-| `wake.stop_energy_threshold` | 语音打断灵敏度，RMS 能量值 |
+| `tts.processing_rate` | "处理中"提示音语速 |
+| `wake.threshold` | 唤醒词灵敏度（越低越灵敏，默认 0.1） |
+| `wake.silence_threshold` | 录音静音能量阈值（RMS） |
+| `wake.silence_sec` | 静音多少秒后结束录音 |
+| `wake.stop_energy_threshold` | 语音打断灵敏度（RMS 能量值） |
+| `search.order` | 搜索引擎调用优先级（baidu / bing / ddgs） |
 
-### 4. 首次运行
+### 4. 启动
 
-首次启动时 faster-whisper 会自动下载 `small` 模型（约 1GB）。国内网络已配置 `hf-mirror.com` 镜像加速。
-
-### 5. 启动
-
-```powershell
-# 终端一：启动 Web 服务
+```bash
+# 终端一：启动 Web 服务（端口 8086）
 python app.py
 
-# 终端二：启动语音助手
+# 终端二（Windows）：启动语音助手
 python voice_assistant.py
 ```
 
 启动后：
-- 浏览器访问 `http://127.0.0.1:5000` 查看对话管理界面
-- 对着麦克风说 **"hey computer"** 唤醒助手
-- 听到提示音后说出你的问题
-- AI 回复会通过扬声器朗读
+- 浏览器访问 `http://127.0.0.1:8086` 查看对话管理界面
+- Windows 下对着麦克风说 **"hey computer"** 唤醒助手
+- 听到提示音后说出你的问题，AI 回复会通过扬声器朗读
 - 朗读期间大声说话可打断
+
+> 在 macOS / Linux 上，仅运行 `python app.py` 即可使用 Web 对话界面；语音唤醒与 TTS 因依赖 Windows SAPI 不可用。
 
 ## 语音命令
 
@@ -184,8 +223,12 @@ python voice_assistant.py
 | "读一下桌面上的 readme.txt" | AI 读取文件 |
 | "把结果写入 result.txt" | AI 写入文件 |
 | "语速快一点" | 调快 TTS 语速 |
-| "换成 David 的声音" | 切换 TTS 音色 |
+| "换成瑶瑶的声音" | 切换 TTS 音色 |
 | "新建一个对话" | 创建新对话 |
 | "切换到上一个对话" | 切换对话 |
-| "删除当前对话" | 删除对话 |
+| "删除当前对话" | 删除对话（需读出安全密码） |
 
+## 许可证
+
+见 [LICENSE](LICENSE)。
+*（内容由AI生成，仅供参考）*
